@@ -64,6 +64,90 @@ class Producto:
             datos.get('proveedor', '')
         )
 
+class Proveedor:
+    """Clase para manejar productos."""
+    def __init__(self, id, empresa, vendedor, telefono, email, direccion):
+        self.id = id
+        self.empresa = empresa
+        self.vendedor = vendedor
+        self.telefono = telefono
+        self.email = email
+        self.direccion = direccion
+
+    def a_diccionario(self):
+        return {
+            'id': self.id,
+            'empresa': self.empresa,
+            'vendedor': self.vendedor,
+            'telefono': self.telefono,
+            'email': self.email,
+            'direccion': self.direccion
+        }
+
+    @staticmethod
+    def de_diccionario(datos):
+        return Proveedor(
+            datos.get('id', ''),
+            datos.get('empresa', ''),
+            datos.get('vendedor', ''),
+            datos.get('telefono', ''),
+            datos.get('email', ''),
+            datos.get('direccion', '')
+        )
+
+class DialogoAgregarProveedor(QDialog):
+    """Diálogo para añadir un nuevo proveedor."""
+    def __init__(self, proveedores_existentes):
+        super().__init__()
+        self.setWindowTitle("Añadir Proveedor")
+        self.setFixedSize(400, 400)
+        self.proveedores_existentes = proveedores_existentes
+
+        # Campos de entrada
+        self.id_proveedor = QLineEdit()
+        self.empresa = QLineEdit()
+        self.vendedor = QLineEdit()
+        self.telefono = QLineEdit()
+        self.email = QLineEdit()
+        self.direccion = QLineEdit()
+
+        # Botón de guardar
+        self.boton_guardar = QPushButton("Guardar")
+        self.boton_guardar.clicked.connect(self.guardar_proveedor)
+
+        # Layout del formulario
+        layout_formulario = QFormLayout()
+        layout_formulario.addRow("ID del proveedor:", self.id_proveedor)
+        layout_formulario.addRow("Empresa:", self.empresa)
+        layout_formulario.addRow("Vendedor:", self.vendedor)
+        layout_formulario.addRow("Teléfono:", self.telefono)
+        layout_formulario.addRow("Email:", self.email)
+        layout_formulario.addRow("Dirección:", self.direccion)
+        layout_formulario.addRow(self.boton_guardar)
+
+        self.setLayout(layout_formulario)
+        self.proveedor = None
+
+    def guardar_proveedor(self):
+        id = self.id_proveedor.text().strip()
+        empresa = self.empresa.text().strip()
+        vendedor = self.vendedor.text().strip()
+        telefono = self.telefono.text().strip()
+        email = self.email.text().strip()
+        direccion = self.direccion.text().strip()
+
+        if not id or not empresa or not vendedor or not telefono or not email or not direccion:
+            QMessageBox.warning(self, "Entrada inválida", "Todos los campos son requeridos.")
+            return
+
+        if any(p.id == id for p in self.proveedores_existentes):
+            QMessageBox.warning(self, "Entrada inválida", f"Ya existe un proveedor con el ID '{id}'.")
+            return
+
+        self.proveedor = Proveedor(id, empresa, vendedor, telefono, email, direccion)
+        QMessageBox.information(self, "Éxito", f"Proveedor '{empresa}' añadido correctamente.")
+        self.accept()
+
 class DialogoAgregarProducto(QDialog):
     """Diálogo para añadir un nuevo producto."""
 
@@ -118,11 +202,12 @@ class DialogoAgregarProducto(QDialog):
         }
     }
 
-    def __init__(self, productos_existentes):
+    def __init__(self, productos_existentes, proveedores_existentes):
         super().__init__()
         self.setWindowTitle("Añadir Producto")
         self.setFixedSize(400, 700)
         self.productos_existentes = productos_existentes
+        self.proveedores_existentes = proveedores_existentes
 
         # Campos de entrada
         self.nombre_producto = QLineEdit()
@@ -139,7 +224,8 @@ class DialogoAgregarProducto(QDialog):
         self.temperatura = QLineEdit()
         self.condiciones = QLineEdit()
         self.medicamento_controlado = QCheckBox()
-        self.proveedor = QLineEdit()
+        self.proveedor = QComboBox()
+        self.proveedor.addItems([p.empresa for p in proveedores_existentes])
 
         # Relacionar combos
         self.categoria.currentTextChanged.connect(self.actualizar_presentacion_y_unidad)
@@ -200,7 +286,7 @@ class DialogoAgregarProducto(QDialog):
         temperatura = self.temperatura.text().strip()
         condiciones = self.condiciones.text().strip()
         medicamento_controlado = self.medicamento_controlado.isChecked()
-        proveedor = self.proveedor.text().strip()
+        proveedor = self.proveedor.currentText()
         precio_venta = math.ceil(precio_compra * 1.3)
 
         if not nombre or not descripcion or not categoria or not presentacion or cantidad_por_presentacion <= 0 \
@@ -225,12 +311,13 @@ class DialogoEditarProducto(QDialog):
     """Diálogo para editar un producto existente."""
     CATEGORIAS = DialogoAgregarProducto.CATEGORIAS
 
-    def __init__(self, producto, productos_existentes, padre):
+    def __init__(self, producto, productos_existentes, proveedores_existentes ,padre):
         super().__init__(padre)
         self.setWindowTitle("Editar Producto")
         self.setFixedSize(400, 700)
         self.producto = producto
         self.productos_existentes = productos_existentes
+        self.proveedores_existentes = proveedores_existentes
 
         self.nombre_producto = QLineEdit(self.producto.nombre)
         self.descripcion_producto = QTextEdit(self.producto.descripcion)
@@ -247,7 +334,12 @@ class DialogoEditarProducto(QDialog):
         self.condiciones = QLineEdit(self.producto.condiciones)
         self.medicamento_controlado = QCheckBox()
         self.medicamento_controlado.setChecked(self.producto.medicamento_controlado)
-        self.proveedor = QLineEdit(self.producto.proveedor)
+        self.proveedor = QComboBox()
+        self.proveedor.addItems([p.empresa for p in self.proveedores_existentes])
+        if self.producto.proveedor in [self.proveedor.itemText(i) for i in range(self.proveedor.count())]:
+            self.proveedor.setCurrentText(self.producto.proveedor)
+        else:
+            self.proveedor.setCurrentIndex(0)
         self.precio_venta = QLabel(str(self.producto.precio_venta))
 
         # Relacionar combos
@@ -319,7 +411,7 @@ class DialogoEditarProducto(QDialog):
         temperatura = self.temperatura.text().strip()
         condiciones = self.condiciones.text().strip()
         medicamento_controlado = self.medicamento_controlado.isChecked()
-        proveedor = self.proveedor.text().strip()
+        proveedor = self.proveedor.currentText()
         precio_venta = math.ceil(precio_compra * 1.3)
 
         if not nombre or not descripcion or not categoria or not presentacion or cantidad_por_presentacion <= 0 \
@@ -477,12 +569,66 @@ class DialogoMostrarTodosProductos(QDialog):
         """Mostrar todos los detalles y permitir editar."""
         nombre_producto = item.text().split(" | ")[0]
         producto = next(p for p in self.productos if p.nombre == nombre_producto)
-        dialogo_editar = DialogoEditarProducto(producto, self.productos, self)
+        dialogo_editar = DialogoEditarProducto(producto, self.productos, self.ventana_principal.proveedores, self)
         if dialogo_editar.exec_() == QDialog.Accepted:
             if dialogo_editar.producto is None:  # Si fue eliminado
                 self.productos.remove(producto)
                 self.ventana_principal.guardar_productos()
         self.actualizar_lista_productos()
+
+class DialogoMostrarVentas(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Ventas Realizadas")
+        self.setFixedSize(500, 400)
+
+        self.lista = QListWidget()
+        self.label_ganancia = QLabel("Ganancia total: $0.00")
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.lista)
+        layout.addWidget(self.label_ganancia)
+        self.setLayout(layout)
+
+        self.cargar_ventas()
+
+    def cargar_ventas(self):
+        try:
+            with open("ventas.json", "r") as archivo:
+                ventas = json.load(archivo)
+        except FileNotFoundError:
+            ventas = []
+
+        ganancia_total = 0
+        self.lista.clear()
+        for venta in ventas:
+            productos = ", ".join(
+                f"{p['nombre']} x{p['cantidad']}" for p in venta["productos"]
+            )
+            texto = (
+                f"Productos: {productos} | Total: ${venta['total']} | "
+                f"Pagado: ${venta['monto_pagado']} | Vuelto: ${venta['vuelto']} | "
+                f"Ganancia: ${venta['ganancia']}"
+            )
+            self.lista.addItem(texto)
+            ganancia_total += venta["ganancia"]
+
+        self.label_ganancia.setText(f"Ganancia total: ${ganancia_total:.2f}")
+
+class DialogoMostrarTodosProveedores(QDialog):
+    def __init__(self, proveedores, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Lista de Proveedores")
+        self.setFixedSize(400, 300)
+        self.proveedores = proveedores
+
+        self.lista = QListWidget()
+        for proveedor in proveedores:
+            self.lista.addItem(f"{proveedor.empresa} - {proveedor.vendedor}")
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.lista)
+        self.setLayout(layout)
 
 class DialogoBuscarProducto(QDialog):
     """Diálogo para buscar productos."""
@@ -697,6 +843,9 @@ class DialogoCanasta(QDialog):
 
             # Confirmación de pago exitoso y limpieza de la canasta
             QMessageBox.information(self, "Pago realizado", texto_pago)
+            self.ventana_principal.registrar_venta(
+                self.productos_en_canasta, total, monto_pago, vuelto
+            )
             self.productos_en_canasta.clear()
             self.actualizar_lista_canasta()
             self.input_monto_pago.clear()
@@ -712,9 +861,11 @@ class InventarioApp(QWidget):
         self.setFixedSize(400, 300)
 
         self.productos = []
+        self.proveedores = []
 
         # Cargar productos desde un archivo
         self.cargar_productos()
+        self.cargar_proveedores()
 
         self.dialogo_canasta = DialogoCanasta(self)
 
@@ -722,8 +873,14 @@ class InventarioApp(QWidget):
         self.boton_agregar = QPushButton("Agregar Producto")
         self.boton_agregar.clicked.connect(self.abrir_dialogo_agregar)
 
+        self.boton_proveedor = QPushButton("Agregar Proveedor")
+        self.boton_proveedor.clicked.connect(self.abrir_dialogo_agregar_proveedor)
+
         self.boton_mostrar_inventario = QPushButton("Mostrar Inventario")
         self.boton_mostrar_inventario.clicked.connect(self.mostrar_inventario)
+
+        self.boton_mostrar_proveedores = QPushButton("Mostrar Proveedores")
+        self.boton_mostrar_proveedores.clicked.connect(self.mostrar_proveedores)
 
         self.boton_buscar = QPushButton("Buscar Producto")
         self.boton_buscar.clicked.connect(self.abrir_dialogo_buscar)
@@ -731,27 +888,47 @@ class InventarioApp(QWidget):
         self.boton_canasta = QPushButton("Canasta")
         self.boton_canasta.clicked.connect(self.abrir_dialogo_canasta)
 
+        self.boton_mostrar_ventas = QPushButton("Mostrar Ventas")
+        self.boton_mostrar_ventas.clicked.connect(self.mostrar_ventas)
+
         self.boton_anadir_stock = QPushButton("Añadir Stock")
         self.boton_anadir_stock.clicked.connect(self.abrir_dialogo_anadir_stock)
+
+        self.boton_salir = QPushButton("Salir")
+        self.boton_salir.clicked.connect(self.close)
+
+
         
 
         # Layout de la ventana principal
         layout = QVBoxLayout()
         layout.addWidget(self.boton_agregar)
+        layout.addWidget(self.boton_proveedor)
         layout.addWidget(self.boton_mostrar_inventario)
         layout.addWidget(self.boton_buscar)
+        layout.addWidget(self.boton_mostrar_proveedores)
         layout.addWidget(self.boton_canasta)
+        layout.addWidget(self.boton_mostrar_ventas)
         layout.addWidget(self.boton_anadir_stock)
-
+        layout.addWidget(self.boton_salir)
         self.setLayout(layout)
 
     def abrir_dialogo_agregar(self):
         """Abrir el diálogo para agregar un nuevo producto."""
-        dialogo = DialogoAgregarProducto(self.productos)
-        if dialogo.exec_() == QDialog.Accepted and dialogo.producto:
-            self.productos.append(dialogo.producto)
-            self.guardar_productos()
-    
+        dialogo = DialogoAgregarProducto(self.productos, self.proveedores)
+        if dialogo.exec_() == QDialog.Accepted:
+            nuevo_producto = dialogo.producto
+            if nuevo_producto:
+                self.productos.append(nuevo_producto)
+                self.guardar_productos()
+                QMessageBox.information(self, "Éxito", f"Producto '{nuevo_producto.nombre}' añadido.")
+
+    def abrir_dialogo_agregar_proveedor(self):
+        dialogo = DialogoAgregarProveedor(self.proveedores)
+        if dialogo.exec_() == QDialog.Accepted and dialogo.proveedor:
+            self.proveedores.append(dialogo.proveedor)
+            self.guardar_proveedores()
+
     def mostrar_inventario(self):
         dialogo = DialogoMostrarTodosProductos(self.productos, self)
         dialogo.exec_()
@@ -778,10 +955,62 @@ class InventarioApp(QWidget):
         with open("productos.json", "w") as archivo:
             json.dump([p.a_diccionario() for p in self.productos], archivo)
 
+    def cargar_proveedores(self):
+        try:
+            with open("proveedores.json", "r") as archivo:
+                proveedores_data = json.load(archivo)
+                self.proveedores = [Proveedor.de_diccionario(p) for p in proveedores_data]
+        except FileNotFoundError:
+            self.proveedores = []
+
+    def guardar_proveedores(self):
+        with open("proveedores.json", "w") as archivo:
+            json.dump([p.a_diccionario() for p in self.proveedores], archivo, indent=4)
+
     def abrir_dialogo_anadir_stock(self):
         dialogo = DialogoSeleccionarProductoStock(self.productos, self)
         dialogo.exec_()
 
+    def mostrar_proveedores(self):
+        dialogo = DialogoMostrarTodosProveedores(self.proveedores, self)
+        dialogo.exec_()
+
+    def mostrar_ventas(self):
+        dialogo = DialogoMostrarVentas(self)
+        dialogo.exec_()
+
+    def registrar_venta(self, productos_vendidos, total, monto_pagado, vuelto):
+        """Registrar una venta en el archivo ventas.json."""
+        try:
+            with open("ventas.json", "r") as archivo:
+                ventas = json.load(archivo)
+        except FileNotFoundError:
+            ventas = []
+
+    # Calcula la ganancia de la venta
+        ganancia = sum(
+            (item['producto'].precio_venta - item['producto'].precio_compra) * item['cantidad']
+            for item in productos_vendidos
+        )
+
+        venta = {
+            "productos": [
+                {
+                    "nombre": item['producto'].nombre,
+                    "cantidad": item['cantidad'],
+                    "precio_venta": item['producto'].precio_venta,
+                    "precio_compra": item['producto'].precio_compra
+                }
+                for item in productos_vendidos
+            ],
+            "total": total,
+            "monto_pagado": monto_pagado,
+            "vuelto": vuelto,
+            "ganancia": ganancia
+        }
+        ventas.append(venta)
+        with open("ventas.json", "w") as archivo:
+            json.dump(ventas, archivo, indent=4)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

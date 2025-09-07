@@ -1,7 +1,7 @@
 import sys
 import json
 import math
-from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpinBox,
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QSpinBox, QTableWidget, QTableWidgetItem,
                              QDialog, QLineEdit, QTextEdit, QListWidget, QListWidgetItem, QMessageBox, QCheckBox, QFormLayout, QComboBox)
 
 class Producto:
@@ -66,19 +66,19 @@ class Producto:
 
 class Proveedor:
     """Clase para manejar productos."""
-    def __init__(self, id, empresa, vendedor, telefono, email, direccion):
-        self.id = id
+    def __init__(self,  tipo_documento, nit, empresa, telefono, email, direccion):
+        self.tipo_documento = tipo_documento
+        self.nit = nit
         self.empresa = empresa
-        self.vendedor = vendedor
         self.telefono = telefono
         self.email = email
         self.direccion = direccion
 
     def a_diccionario(self):
         return {
-            'id': self.id,
+            'tipo_documento': self.tipo_documento,
+            'nit': self.nit,
             'empresa': self.empresa,
-            'vendedor': self.vendedor,
             'telefono': self.telefono,
             'email': self.email,
             'direccion': self.direccion
@@ -87,9 +87,9 @@ class Proveedor:
     @staticmethod
     def de_diccionario(datos):
         return Proveedor(
-            datos.get('id', ''),
+            datos.get('tipo de documento', ''),
+            datos.get('nit', ''),
             datos.get('empresa', ''),
-            datos.get('vendedor', ''),
             datos.get('telefono', ''),
             datos.get('email', ''),
             datos.get('direccion', '')
@@ -104,9 +104,15 @@ class DialogoAgregarProveedor(QDialog):
         self.proveedores_existentes = proveedores_existentes
 
         # Campos de entrada
-        self.id_proveedor = QLineEdit()
+        self.tipo_documento = QComboBox()
+        self.tipo_documento.addItems([
+            "Cédula de ciudadanía o Nit",
+            "Tarjeta de extranjería",
+            "Cédula de extranjería",
+            "Pasaporte"
+        ])
+        self.nit_proveedor= QLineEdit()
         self.empresa = QLineEdit()
-        self.vendedor = QLineEdit()
         self.telefono = QLineEdit()
         self.email = QLineEdit()
         self.direccion = QLineEdit()
@@ -117,9 +123,9 @@ class DialogoAgregarProveedor(QDialog):
 
         # Layout del formulario
         layout_formulario = QFormLayout()
-        layout_formulario.addRow("ID del proveedor:", self.id_proveedor)
+        layout_formulario.addRow("Tipo de documento:", self.tipo_documento)
+        layout_formulario.addRow("Nit del proveedor:", self.nit_proveedor)
         layout_formulario.addRow("Empresa:", self.empresa)
-        layout_formulario.addRow("Vendedor:", self.vendedor)
         layout_formulario.addRow("Teléfono:", self.telefono)
         layout_formulario.addRow("Email:", self.email)
         layout_formulario.addRow("Dirección:", self.direccion)
@@ -129,22 +135,22 @@ class DialogoAgregarProveedor(QDialog):
         self.proveedor = None
 
     def guardar_proveedor(self):
-        id = self.id_proveedor.text().strip()
+        tipo_documento = self.tipo_documento.currentText()
+        nit = self.nit_proveedor.text().strip()
         empresa = self.empresa.text().strip()
-        vendedor = self.vendedor.text().strip()
         telefono = self.telefono.text().strip()
         email = self.email.text().strip()
         direccion = self.direccion.text().strip()
 
-        if not id or not empresa or not vendedor or not telefono or not email or not direccion:
+        if not nit or not empresa or not tipo_documento or not telefono or not email or not direccion:
             QMessageBox.warning(self, "Entrada inválida", "Todos los campos son requeridos.")
             return
 
-        if any(p.id == id for p in self.proveedores_existentes):
-            QMessageBox.warning(self, "Entrada inválida", f"Ya existe un proveedor con el ID '{id}'.")
+        if any(p.nit == nit for p in self.proveedores_existentes):
+            QMessageBox.warning(self, "Entrada inválida", f"Ya existe un proveedor con el id '{id}'.")
             return
 
-        self.proveedor = Proveedor(id, empresa, vendedor, telefono, email, direccion)
+        self.proveedor = Proveedor(tipo_documento, nit, empresa, telefono, email, direccion)
         QMessageBox.information(self, "Éxito", f"Proveedor '{empresa}' añadido correctamente.")
         self.accept()
 
@@ -615,21 +621,137 @@ class DialogoMostrarVentas(QDialog):
 
         self.label_ganancia.setText(f"Ganancia total: ${ganancia_total:.2f}")
 
+class DialogoEditarProveedor(QDialog):
+    """Diálogo para editar un proveedor existente."""
+    def __init__(self, proveedor, proveedores_existentes, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Editar Proveedor")
+        self.setFixedSize(400, 400)
+        self.proveedor = proveedor
+        self.proveedores_existentes = proveedores_existentes
+
+        self.tipo_documento = QComboBox()
+        self.tipo_documento.addItems([
+            "Cédula de ciudadanía o Nit",
+            "Tarjeta de extranjería",
+            "Cédula de extranjería",
+            "Pasaporte"
+        ])
+        self.tipo_documento.setCurrentText(proveedor.tipo_documento)
+        self.nit_proveedor = QLineEdit(proveedor.nit)
+        self.nit_proveedor.setReadOnly(True)  # No permitir editar el NIT
+        self.empresa = QLineEdit(proveedor.empresa)
+        self.telefono = QLineEdit(proveedor.telefono)
+        self.email = QLineEdit(proveedor.email)
+        self.direccion = QLineEdit(proveedor.direccion)
+
+        self.boton_guardar = QPushButton("Guardar Cambios")
+        self.boton_guardar.clicked.connect(self.guardar_cambios)
+
+        layout_formulario = QFormLayout()
+        layout_formulario.addRow("Tipo de documento:", self.tipo_documento)
+        layout_formulario.addRow("Nit del proveedor:", self.nit_proveedor)
+        layout_formulario.addRow("Empresa:", self.empresa)
+        layout_formulario.addRow("Teléfono:", self.telefono)
+        layout_formulario.addRow("Email:", self.email)
+        layout_formulario.addRow("Dirección:", self.direccion)
+        layout_formulario.addRow(self.boton_guardar)
+
+        self.setLayout(layout_formulario)
+
+    def guardar_cambios(self):
+        empresa = self.empresa.text().strip()
+        tipo_documento = self.tipo_documento.currentText()
+        telefono = self.telefono.text().strip()
+        email = self.email.text().strip()
+        direccion = self.direccion.text().strip()
+
+        if not empresa or not tipo_documento or not telefono or not email or not direccion:
+            QMessageBox.warning(self, "Entrada inválida", "Todos los campos son requeridos.")
+            return
+
+        self.proveedor.empresa = empresa
+        self.proveedor.tipo_documento = tipo_documento
+        self.proveedor.telefono = telefono
+        self.proveedor.email = email
+        self.proveedor.direccion = direccion
+        QMessageBox.information(self, "Éxito", f"Proveedor '{empresa}' actualizado correctamente.")
+        self.accept()
+
 class DialogoMostrarTodosProveedores(QDialog):
-    def __init__(self, proveedores, parent=None):
+    def __init__(self, proveedores, ventana_principal, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Lista de Proveedores")
-        self.setFixedSize(400, 300)
-        self.proveedores = proveedores
+        self.setFixedSize(700, 400)
+        self.proveedores = sorted(proveedores, key=lambda p: str(p.nit))  # Ordenar por NIT
+        self.ventana_principal = ventana_principal
 
-        self.lista = QListWidget()
-        for proveedor in proveedores:
-            self.lista.addItem(f"{proveedor.empresa} - {proveedor.vendedor}")
+        self.tabla = QTableWidget()
+        self.tabla.setColumnCount(5)
+        self.tabla.setHorizontalHeaderLabels(["NIT", "Empresa", "Teléfono", "Email", "Dirección"])
+        self.tabla.setRowCount(len(self.proveedores))
+        self.tabla.verticalHeader().setVisible(False)
+        self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabla.setSelectionMode(QTableWidget.SingleSelection)
+        self.tabla.setShowGrid(True)
+        self.tabla.setAlternatingRowColors(True)
+
+        for fila, proveedor in enumerate(self.proveedores):
+            self.tabla.setItem(fila, 0, QTableWidgetItem(str(proveedor.nit)))
+            self.tabla.setItem(fila, 1, QTableWidgetItem(proveedor.empresa))
+            self.tabla.setItem(fila, 2, QTableWidgetItem(proveedor.telefono))
+            self.tabla.setItem(fila, 3, QTableWidgetItem(proveedor.email))
+            self.tabla.setItem(fila, 4, QTableWidgetItem(proveedor.direccion))
+
+        self.tabla.resizeColumnsToContents()
+        self.tabla.horizontalHeader().setStretchLastSection(True)
+        self.tabla.cellDoubleClicked.connect(self.abrir_editar_o_eliminar)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.lista)
+        layout.addWidget(self.tabla)
         self.setLayout(layout)
 
+    def abrir_editar_o_eliminar(self, row, column):
+        proveedor = self.proveedores[row]
+        dialogo = QDialog(self)
+        dialogo.setWindowTitle("Editar o Eliminar Proveedor")
+        dialogo.setFixedSize(250, 120)
+        boton_editar = QPushButton("Editar")
+        boton_eliminar = QPushButton("Eliminar")
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Proveedor: {proveedor.empresa}"))
+        layout.addWidget(boton_editar)
+        layout.addWidget(boton_eliminar)
+        dialogo.setLayout(layout)
+
+        boton_editar.clicked.connect(lambda: self.editar_proveedor(dialogo, proveedor, row))
+        boton_eliminar.clicked.connect(lambda: self.eliminar_proveedor(dialogo, proveedor, row))
+        dialogo.exec_()
+
+    def editar_proveedor(self, dialogo, proveedor, row):
+        dialogo_editar = DialogoEditarProveedor(proveedor, self.proveedores, self)
+        if dialogo_editar.exec_() == QDialog.Accepted:
+            # Actualizar la tabla
+            self.tabla.setItem(row, 1, QTableWidgetItem(proveedor.empresa))
+            self.tabla.setItem(row, 2, QTableWidgetItem(proveedor.telefono))
+            self.tabla.setItem(row, 3, QTableWidgetItem(proveedor.email))
+            self.tabla.setItem(row, 4, QTableWidgetItem(proveedor.direccion))
+            self.ventana_principal.guardar_proveedores()
+        dialogo.accept()
+
+    def eliminar_proveedor(self, dialogo, proveedor, row):
+        confirmacion = QMessageBox.question(self, "Eliminar Proveedor",
+                                            f"¿Estás seguro de eliminar '{proveedor.empresa}'?",
+                                            QMessageBox.Yes | QMessageBox.No)
+        if confirmacion == QMessageBox.Yes:
+            self.proveedores.remove(proveedor)
+            self.ventana_principal.proveedores.remove(proveedor)
+            self.tabla.removeRow(row)
+            self.ventana_principal.guardar_proveedores()
+            QMessageBox.information(self, "Eliminado", "Proveedor eliminado correctamente.")
+        dialogo.accept()
+        
 class DialogoBuscarProducto(QDialog):
     """Diálogo para buscar productos."""
     def __init__(self, productos, dialogo_canasta):
